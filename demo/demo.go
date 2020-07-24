@@ -1,42 +1,177 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/testdata"
+	"log"
+	"time"
 
+	"github.com/LabZion/HEaaS/common"
+	pb "github.com/LabZion/HEaaS/fhe"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/ldsec/lattigo/bfv"
+	"google.golang.org/grpc"
 )
+
+var (
+	tls                = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
+	caFile             = flag.String("ca_file", "", "The file containing the CA root cert file")
+	serverAddr         = flag.String("server_addr", "172.24.82.229:10000", "The server address in the format of host:port")
+	serverHostOverride = flag.String("server_host_override", "x.test.youtube.com", "The server name used to verify the hostname returned by the TLS handshake")
+)
+
+var account = "fan@torchz.net"
+
+// KeyPair is a pair of bfv public and private keys
+type KeyPair struct {
+	PublicKey []byte
+	SecretKey []byte
+}
+
+// Bid is a bid
+type Bid struct {
+	LimitPriceDistance int
+	CreditDistance     int
+}
+
+// generateKeysRemote gets a new pair of fhe keys
+func generateKeysRemote(client pb.FHEClient) KeyPair {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	keyPair, err := client.GenerateKey(ctx, &empty.Empty{})
+	if err != nil {
+		log.Fatalf("%v.GenerateKey(_) = _, %v: ", client, err)
+	}
+	return KeyPair{
+		PublicKey: keyPair.PublicKey,
+		SecretKey: keyPair.SecretKey,
+	}
+}
+
+// storePublicKey store a pair of fhe keys
+func storePublicKey(client pb.FHEClient, account string, keyPair KeyPair) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := client.StorePublicKey(ctx, &pb.StoreKeyRequest{
+		Account: account,
+		KeyPair: &pb.KeyPair{
+			PublicKey: keyPair.PublicKey,
+		},
+	})
+	if err != nil {
+		log.Fatalf("%v.StoreKey(_) = _, %v: ", client, err)
+	}
+	return
+}
+
+// setAsk set an ask for account
+func setAsk(client pb.FHEClient, keyPair KeyPair, account string, limit int) {
+	params := common.GetParams()
+
+	sk := bfv.SecretKey{}
+	_ = sk.UnmarshalBinary(keyPair.SecretKey)
+	encryptorSk := bfv.NewEncryptorFromSk(params, &sk)
+
+	limitCiphertextBytes := common.EncryptInt(encryptorSk, limit)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := client.SetAsk(ctx, &pb.AskRequest{
+		Account:              account,
+		LimitPriceCipherText: limitCiphertextBytes,
+	})
+	if err != nil {
+		log.Fatalf("%v.SetAsk(_) = _, %v: ", client, err)
+	}
+	return
+}
+
+// getEligibleBids fetch all eligible bids
+func getEligibleBids(client pb.FHEClient, keyPair KeyPair, account string) (uint64, []Bid) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	eligibleBidResponse, err := client.EligibleBid(ctx, &pb.EligibleBidRequest{
+		Account: account,
+	})
+	if err != nil {
+		log.Fatalf("%v.EligibleBid(_) = _, %v: ", client, err)
+	}
+	// Decrypting Bids
+	bids := []Bid{}
+	params := common.GetParams()
+
+	sk := bfv.SecretKey{}
+	_ = sk.UnmarshalBinary(keyPair.SecretKey)
+	decryptor := bfv.NewDecryptor(params, &sk)
+
+	for _, bid := range eligibleBidResponse.Bids {
+		limitPriceDistance := common.DecryptInt(decryptor, bid.LimitPriceDistanceCiphertext)
+		creditDistance := common.DecryptInt(decryptor, bid.CreditDistanceCiphertext)
+
+		bids = append(bids, Bid{
+			LimitPriceDistance: limitPriceDistance,
+			CreditDistance:     creditDistance,
+		})
+	}
+	return eligibleBidResponse.TotalBidNumber, bids
+}
 
 type SmartContract struct {
 	contractapi.Contract
+	client pb.FHEClient
+	kp KeyPair
 }
 
-func (s *SmartContract) InitLedger(_ contractapi.TransactionContextInterface) error {
-	return nil
+func newClient() pb.FHEClient {
+	var opts []grpc.DialOption
+
+	if *tls {
+		if *caFile == "" {
+			*caFile = testdata.Path("ca.pem")
+		}
+		creds, err := credentials.NewClientTLSFromFile(*caFile, *serverHostOverride)
+		if err != nil {
+			log.Fatalf("Failed to create TLS credentials %v", err)
+		}
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
+	}
+
+	opts = append(opts, grpc.WithBlock())
+
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+
+	client := pb.NewFHEClient(conn)
+
+	return client
 }
 
-func (s *SmartContract) HttpCall(_ contractapi.TransactionContextInterface) (string, error) {
-	resp, err := http.Get("http://www.baidu.com")
-	if err != nil {
-		fmt.Printf("Failed to http get from baidu, %s", err.Error())
-		return "nil", err
-	}
 
-	defer resp.Body.Close()
+func (s *SmartContract) SetAsk(_ contractapi.TransactionContextInterface) (string, error) {
+	limit := 100
+	fmt.Println("Saving Ask.")
+	setAsk(s.client, s.kp, account, limit)
+	return "success", nil
+}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Failed to read body from http response: %s", err.Error())
-		return "nil", err
-	}
-
-	return string(body), nil
-
+func (s *SmartContract) GetBids(_ contractapi.TransactionContextInterface) (string, error) {
+	number, bids := getEligibleBids(s.client, s.kp, account)
+	return fmt.Sprintf("total bid number: %d, bids: %#v\n", number, bids), nil
 }
 
 func main() {
-	chainCode, err := contractapi.NewChaincode(new(SmartContract))
+	client := newClient()
+	smartContract := SmartContract {client: client, kp: generateKeysRemote(client)}
+	storePublicKey(client, account, smartContract.kp)
+	chainCode, err := contractapi.NewChaincode(&smartContract)
 
 	if err != nil {
 		fmt.Printf("Error create demo chainCode: %s", err.Error())

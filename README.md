@@ -78,4 +78,17 @@ mv demo and deploy.sh to test-network's directory
 ./deploy.sh
 ```
 
-every time run this scipt will renew a test-network and deploy the newest demo chaincode
+every time run this scipt will renew a test-network and deploy the latest demo chaincode
+
+#### Note
+you must modify demo.go where the server address should be the docker bridge0
+
+## Run Demo
+
+```bash
+./setAsk.sh
+```
+
+```bash
+./getBids.sh
+```
