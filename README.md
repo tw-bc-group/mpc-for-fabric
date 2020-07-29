@@ -89,6 +89,10 @@ you must modify demo.go where the server address should be the docker bridge0
 ./setAsk.sh
 ```
 
+```
+./setBids.sh
+```
+
 ```bash
 ./getBids.sh
 ```
