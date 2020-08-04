@@ -15,15 +15,13 @@ run_as_org2()
     export CORE_PEER_ADDRESS=localhost:9051
 }
 
+heaas_container_name="heaas-server"
+docker stop $heaas_container_name > /dev/null 2>&1
+docker container rm $heaas_container_name
+
 if [[ ! -d "./fabric-samples" ]]; then
   curl -sSL https://bit.ly/2ysbOFE | bash -s
 fi
-
-heaas_container_name="heaas-server"
-
-docker stop $heaas_container_name > /dev/null 2>&1
-docker container rm $heaas_container_name
-docker run --name $heaas_container_name  -p 10000:10000 -d matrix2016/heaas:server
 
 cd "fabric-samples/test-network"
 
@@ -33,6 +31,10 @@ export CORE_PEER_TLS_ENABLED=true
 
 ./network.sh down
 ./network.sh up createChannel
+
+echo "start heaas server and join network..."
+network="net_test"
+docker run --name $heaas_container_name  --network $network -p 10000:10000 -d matrix2016/heaas:server
 
 echo "packaging demo..."
 peer lifecycle chaincode package demo.tar.gz --path ../../demo --lang golang --label demo_1
