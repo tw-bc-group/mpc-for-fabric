@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-export PATH=${PWD}/../bin:$PATH
-export FABRIC_CFG_PATH=$PWD/../config/
+export PATH=${PWD}/fabric-samples/test-network/bin:$PATH
+export FABRIC_CFG_PATH=$PWD/fabric-samples/test-network/config/
 export CORE_PEER_TLS_ENABLED=true
 
 function run_as_org1() {
