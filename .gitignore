@@ -16,9 +16,5 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-.idea/.gitignore
-.idea/fabric-quick-start.iml
-.idea/misc.xml
-.idea/modules.xml
-.idea/vcs.xml
+.idea/
 fabric-samples/
