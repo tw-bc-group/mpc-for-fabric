@@ -17,4 +17,5 @@
 # vendor/
 
 .idea/
+demo/vendor/
 fabric-samples/

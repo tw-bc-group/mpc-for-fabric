@@ -128,7 +128,7 @@ func getEligibleBids(client pb.FHEClient, keyPair KeyPair, account string) (uint
 		log.Fatalf("%v.EligibleBid(_) = _, %v: ", client, err)
 	}
 	// Decrypting Bids
-	bids := []Bid{}
+	var bids []Bid
 	params := common.GetParams()
 
 	sk := bfv.SecretKey{}
@@ -217,9 +217,9 @@ func (s *SmartContract) SetBids(_ contractapi.TransactionContextInterface) (stri
 
 	limit := 100
 	credit := 630
-	setBid(client, kp, account, "alice@gmail.com", limit+10, credit+100)
+	setBid(client, kp, account, "alice@gmail.com", limit+11, credit+11)
 	setBid(client, kp, account, "bob@gmail.com", limit, credit-100)
-	setBid(client, kp, account, "evan@gmail.com", limit-10, credit)
+	setBid(client, kp, account, "evan@gmail.com", limit-22, credit)
 
 	return "SetBids succeeded", nil
 }

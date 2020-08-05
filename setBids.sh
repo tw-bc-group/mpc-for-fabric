@@ -13,5 +13,5 @@ function run_as_org1() {
 
 run_as_org1
 
-echo "set Bids..."
+echo "set Bids, [price, credit] are [[0, -100], [+11, +11], [-22, 0]]..."
 peer chaincode query -C mychannel -n demo -c '{"Args":["SetBids"]}'

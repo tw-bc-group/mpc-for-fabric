@@ -13,5 +13,5 @@ function run_as_org1() {
 
 run_as_org1
 
-echo "set Ask..."
+echo "set Ask, limit price is 100..."
 peer chaincode query -C mychannel -n demo -c '{"Args":["SetAsk"]}'

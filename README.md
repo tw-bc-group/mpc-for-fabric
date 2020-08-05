@@ -21,10 +21,6 @@ If you are using Docker for Mac, you will need to use a location under `/Users`,
 
 ## Run Demo
 
-###### !!! IMPORTANT !!! 
-
-Modify demo/demo.go line 24 assign the server address, e.g. the docker0 bridge address.
-
 ```bash
 ./deploy.sh
 ```
