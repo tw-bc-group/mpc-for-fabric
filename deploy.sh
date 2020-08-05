@@ -7,7 +7,7 @@ function run_as_org1() {
     export CORE_PEER_ADDRESS=localhost:7051
 }
 
-run_as_org2()
+function run_as_org2()
 {
     export CORE_PEER_LOCALMSPID="Org2MSP"
     export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
@@ -23,7 +23,7 @@ if [[ ! -d "./fabric-samples" ]]; then
   curl -sSL https://bit.ly/2ysbOFE | bash -s
 fi
 
-cd "fabric-samples/test-network"
+cd "fabric-samples/test-network" || exit
 
 export PATH=${PWD}/../bin:$PATH
 export FABRIC_CFG_PATH=$PWD/../config/
