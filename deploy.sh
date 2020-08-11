@@ -30,9 +30,7 @@ if [[ "$?" -ne "0" ]]; then
   docker build -t $heaas_container_name heaas_server/.
 fi
 
-echo "11111111"
 cd "fabric-samples/test-network" || exit
-echo "22222222"
 
 export PATH=${PWD}/../bin:$PATH
 export FABRIC_CFG_PATH=$PWD/../config/
