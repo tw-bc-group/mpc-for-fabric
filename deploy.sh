@@ -17,13 +17,22 @@ function run_as_org2()
 
 heaas_container_name="heaas-server"
 docker stop $heaas_container_name > /dev/null 2>&1
-docker container rm $heaas_container_name
+docker container rm $heaas_container_name > /dev/null 2>&1
 
 if [[ ! -d "./fabric-samples" ]]; then
   curl -sSL https://bit.ly/2ysbOFE | bash -s
 fi
 
+docker image inspect $heaas_container_name > /dev/null 2>&1
+
+if [[ "$?" -ne "0" ]]; then
+  echo "local heaas_server image not found, starting building it."
+  docker build -t $heaas_container_name heaas_server/.
+fi
+
+echo "11111111"
 cd "fabric-samples/test-network" || exit
+echo "22222222"
 
 export PATH=${PWD}/../bin:$PATH
 export FABRIC_CFG_PATH=$PWD/../config/
@@ -32,9 +41,9 @@ export CORE_PEER_TLS_ENABLED=true
 ./network.sh down
 ./network.sh up createChannel
 
-echo "start heaas server and join network..."
+echo "start heaas-server and join network..."
 network="net_test"
-docker run --name $heaas_container_name  --network $network -p 10000:10000 -d matrix2016/heaas:server
+docker run --name $heaas_container_name --network $network -p 10000:10000 -d $heaas_container_name
 
 echo "packaging demo..."
 peer lifecycle chaincode package demo.tar.gz --path ../../demo --lang golang --label demo_1
